@@ -1,0 +1,123 @@
+# makeXnow Project Integration
+
+You are working on an app that is part of the makeXnow ecosystem.
+
+## Required Files (DO NOT DELETE)
+
+This template includes essential configuration files:
+
+- **`src/vite-env.d.ts`** - Required for TypeScript to understand Vite features like `import.meta.glob`, `import.meta.env`, etc. Without this file, builds will fail with errors like "Property 'glob' does not exist on type 'ImportMeta'".
+
+- **`tsconfig.json`** - Uses strict mode (`noUnusedLocals`, `noUnusedParameters`). If you have unused variables, prefix them with `_` (e.g., `_unusedVar`) to indicate they're intentionally unused.
+
+## First-Time Setup (Onboarding)
+
+If this app has NOT been registered yet, you need to "onboard" it:
+
+1. **Locate the parent system:** `../makeXnow/` (relative to this folder's parent)
+2. **Rename the App:** Open `index.html` and change `<title>New App</title>` to your app's name (optional for local only). On makeXnow, the worker overrides the tab title from the platform app name. Favicon: if the HTML has no icon link, makeXnow injects the dashboard app icon on both local `npm run dev` and deployed sites; existing favicons are left alone.
+3. **Open:** `../makeXnow/apps.json`
+3. **Find the next available:**
+   - `id`: Use the format `app-<timestamp>` (e.g., `app-1771224939487`)
+   - `localhostPort`: Start from 9001 and find the next unused port
+   - `order`: Look at the highest existing order number and add 1
+4. **Add a new entry** using this folder's name:
+   ```json
+   {
+     "id": "app-<timestamp>",
+     "name": "<App Display Name>",
+     "description": "",
+     "icon": { "type": "image", "path": "" },
+     "link": "/<slug>",
+     "order": <next_order>,
+     "isExternal": false,
+     "isListed": false,
+     "slugs": ["/<slug>"],
+     "section": "dev",
+     "pagesProject": "mxn-<slug>",
+     "folder": "<FULL_PATH_TO_THIS_FOLDER>",
+     "githubUrl": "",
+     "url": "",
+     "localhostPort": 9041,
+     "logs": [],
+     "todos": [],
+     "domain": "makexnow.com"
+   }
+   ```
+   **Notes:**
+   - `section` can be `"public"`, `"dev"`, `"local"`, or `"unlisted"`
+   - `pagesProject` must start with `mxn-` (the bridge enforces this naming convention)
+   - `domain` defaults to `"makexnow.com"` — a custom domain can be assigned later via the dashboard
+   - `icon` will be set via the dashboard's icon upload feature (leave `path` empty initially)
+5. **Confirm** the app appears in the makeXnow dashboard at `http://localhost:9000`
+
+## Development Standards
+
+- **Port:** This app is assigned to port 9041. Do NOT change this. The dashboard launches this app using `npm run dev -- --port 9041`.
+- **Base Path:** Keep `base: './'` in `vite.config.ts` so assets work when hosted at `/apps/your-app/`
+- **Relative Paths:** Use `./` for all asset imports (e.g., `./logo.png`, not `/logo.png`)
+
+## Deployment
+
+Deployment is handled via the makeXnow dashboard:
+1. Open the dashboard at `http://localhost:9000`
+2. Select this app
+3. Click "Deploy"
+
+The system will automatically:
+- Push to GitHub (if configured)
+- Build the app (if a `build` script exists)
+- Deploy to Cloudflare Pages
+- Update the router so it's live at `makexnow.com/apps/<slug>` (or at a custom domain if one is assigned)
+
+## Independence & local caches
+
+This app is a standalone repo. makeXnow only launches, deploys, and janitors it — it does not share disk with other apps.
+
+- **Never commit** `.wrangler/`, `node_modules/`, `dist/`, `.local/`, or photo dumps. They are already in `.gitignore`.
+- **Product images and user uploads belong in R2 (or the app's own storage), not in the git tree.** A 5 MB site can sit next to gigabytes of local Wrangler scratch; that scratch is not the app.
+- Wrangler (`pages dev` / deploy) writes throwaway bundles to `.wrangler/tmp` and often leaves them behind. That is Cloudflare's cache, not project source.
+- **Protocol:** `npm run dev` runs `predev`, which deletes `.wrangler/tmp`. The makeXnow bridge also sweeps `.wrangler/tmp` for every registered app on Run, Stop, Deploy, and hourly. New apps get this automatically from this template. Do not add app-specific cleanup in the makeXnow repo.
+- Do not copy files from sibling apps. Do not point this app's D1/R2 at another app's database or bucket.
+
+### Static Sites (No Build Step)
+
+If your app is a static HTML/CSS/JS site without a build step:
+- The deploy will skip the build and deploy the current directory directly
+- No `build` script in `package.json` is required
+- Your files will be deployed as-is to Cloudflare Pages
+
+## Troubleshooting
+
+- **Port Mismatch:** If the app starts on a different port than expected, check that `package.json` doesn't have a hardcoded `--port` flag
+- **Assets Not Loading:** Ensure `vite.config.ts` has `base: './'`
+- **404 on Refresh:** The Cloudflare Worker handles routing; this is normal for SPAs
+- **Build fails with "Property 'glob' does not exist on type 'ImportMeta'":** You're missing `src/vite-env.d.ts`. Create it with: `/// <reference types="vite/client" />`
+- **Build fails with "is declared but never used":** TypeScript strict mode is enabled. Prefix unused variables with `_` (e.g., `const [_unused, setUsed] = useState()`)
+- **Deploy succeeded but old version is live:** The build likely failed silently. Run `npm run build` manually to see errors.
+
+## Failure Recovery & AI Debugging
+
+If the user provides a "MAKEXNOW DIAGNOSTIC REPORT" or a log copy:
+1. **Check Ports:** If the error is "Address already in use" or "Connection refused," ensure you are using `process.env.PORT` and not a hardcoded value.
+2. **Check Paths:** If assets are 404ing, ensure `base: './'` is in `vite.config.ts`.
+3. **Portability:** Fix the issue in a way that works on any machine (standard Node/Vite patterns), but prioritize the environment variables provided by the host.
+
+## Google Sign-In (MakeXNow Accounts) — usually IGNORE
+
+This template includes a dormant auth client:
+
+- `src/lib/mxn-auth.ts` — redirect / exchange / session helpers
+- `src/lib/MxnGoogleSignInButton.tsx` — optional Sign in button
+
+**Ignore these files unless the app has Google auth enabled.**
+
+When enabled:
+
+1. Set `VITE_MXN_AUTH=1` (use `.env.production` for deploys). Local and live both use `https://accounts.makexnow.com`. Do **not** set `VITE_MXN_ACCOUNTS_URL` unless you are testing the Accounts worker itself.
+2. Pass a stable app id slug (e.g. `linelock`) as a label only — Accounts does not enforce per-app access.
+3. On load, call `consumeMxnCodeFromUrl(appId)` to finish the OAuth return.
+4. Sign-in redirects through live MakeXNow Accounts → Google → back with `?mxn_code=` (including when the app is running on localhost).
+5. Default: **any Google account can sign in**. Do **not** add email allowlists unless this specific app needs invite-only access. MakeXNow Accounts never enforces access.
+
+Do **not** create a new Google Cloud OAuth client per app. Do **not** put Google client secrets in the frontend.
